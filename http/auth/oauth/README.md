@@ -1,0 +1,3 @@
+No direct plans to support this, but if it becomes necessary there are various libraries that could be used to implement the bulk of the required functionality.
+
+However, the general `auth` APIs may need to change bit to allow for more flexibility.  For example, in the case of certain types of failures, it may be appropriate to return a redirect response, rather than an error.  This *could* perhaps be handled with a new error type, and an updated error handler, though it will need to be explored a bit.
