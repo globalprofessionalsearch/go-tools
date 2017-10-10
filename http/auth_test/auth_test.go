@@ -24,11 +24,19 @@ var (
 	}
 )
 
+// appRouter creates an example router including public and private routes.  Some private routes
+// only require that an authenticated user exist, but some require that the
+// authenticated user actually have certain permissions.
+//
+// As new forms of auth are supported by the `auth` package, this test should be
+// updated to test a realistic usage example
 func appRouter() http.Handler {
 	// create the authenticators and authorizers
 	apikeyAuthenticator := apikeyauth.CreateAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey)
 	authClient := auth.CreateClientAuthorizer("ApiClient", auth.DefaultErrorHandler)
 	authPerms := auth.CreatePermissionsAuthorizer("ApiClient", auth.DefaultErrorHandler)
+
+	// create app router w/ routes, some protected w/ the authorizers
 	router := mux.NewRouter()
 	router.HandleFunc("/public", appHttpHandler).Methods("GET")
 	router.HandleFunc("/private", authClient(appHttpHandler)).Methods("GET")
@@ -39,7 +47,7 @@ func appRouter() http.Handler {
 	// in the various authenticator middlewares
 	handler := apikeyAuthenticator(router)
 
-	n := negroni.Classic()
+	n := negroni.New()
 	n.UseHandler(handler)
 	return n
 }
@@ -64,7 +72,6 @@ func appHttpHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func TestAppPublicAuth(t *testing.T) {
-
 	tests := []struct {
 		method, path string
 		expectedCode int
@@ -91,11 +98,43 @@ func TestAppPublicAuth(t *testing.T) {
 }
 
 func TestAppApikeyAuth(t *testing.T) {
-	// test bad key
+	tests := []struct {
+		method, path, key string
+		code              int
+		text              string
+	}{
+		// bad api key, should all fail
+		{"GET", "/public", "bad-api-key", 401, "Authentication required"},
+		{"GET", "/private", "bad-api-key", 401, "Authentication required"},
+		{"GET", "/private/users", "bad-api-key", 401, "Authentication required"},
+		{"POST", "/private/users", "bad-api-key", 401, "Authentication required"},
 
-	// test good key 1
+		// good api key, full permissions
+		{"GET", "/public", "good-key-1", 200, "Hello good-key-1"},
+		{"GET", "/private", "good-key-1", 200, "Hello good-key-1"},
+		{"GET", "/private/users", "good-key-1", 200, "Hello good-key-1"},
+		{"POST", "/private/users", "good-key-1", 200, "Hello good-key-1"},
 
-	// test good key 2
+		// good api key, partial permissions
+		{"GET", "/public", "good-key-2", 200, "Hello good-key-2"},
+		{"GET", "/private", "good-key-2", 200, "Hello good-key-2"},
+		{"GET", "/private/users", "good-key-2", 200, "Hello good-key-2"},
+		{"POST", "/private/users", "good-key-2", 403, "Access denied"},
+	}
+
+	ts := httptest.NewServer(appRouter())
+	defer ts.Close()
+	for _, test := range tests {
+		t.Run(fmt.Sprint(test), func(t *testing.T) {
+			client := webtest.NewClient(t).SetTargetServer(ts)
+			req := client.NewRequest(test.method, test.path, nil)
+			req.Header.Set("Authorization", "Key "+test.key)
+			res := client.Do(req)
+			require.Equal(t, test.code, res.StatusCode)
+			out, _ := ioutil.ReadAll(res.Body)
+			require.Equal(t, test.text, string(out))
+		})
+	}
 }
 
 func TestAppJWTAuth(t *testing.T) {
