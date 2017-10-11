@@ -44,15 +44,15 @@ type Authorizer interface {
 // ErrorHandler is called when
 type ErrorHandler func(http.ResponseWriter, *http.Request, error)
 
-// DefaultErrorHandler provides a default implementation for use in
+// StandardErrorHandler provides a default implementation for use in
 // authorizer handlers.
 //
 // NOTE: it could make sense to follow other conventions here and provide a function
-// for creating the DefaultErrorHandler, which may be renamed to StandardErrorHandler.
+// for creating the StandardErrorHandler.
 // doing this would allow an instance of `log.Logger` to be optionally passed in, and
 // more configurable behavior generally without requiring the app to implement a custom
 // error handler.  Food for thought.
-func DefaultErrorHandler(w http.ResponseWriter, r *http.Request, e error) {
+func StandardErrorHandler(w http.ResponseWriter, r *http.Request, e error) {
 	if e == ErrAuthenticationRequired {
 		w.WriteHeader(401)
 		w.Write([]byte("Authentication required"))

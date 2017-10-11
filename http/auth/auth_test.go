@@ -29,7 +29,7 @@ func TestHandler(t *testing.T) {
 
 func TestNewClientAuthorizer(t *testing.T) {
 	// wrap handler in a client checker
-	h := NewClientAuthorizer("ApiClient", DefaultErrorHandler)(http.HandlerFunc(handler))
+	h := NewClientAuthorizer("ApiClient", StandardErrorHandler)(http.HandlerFunc(handler))
 
 	// no api client - fail
 	r := httptest.NewRequest("GET", "http://example.com/", nil)
@@ -62,7 +62,7 @@ func TestNewClientAuthorizer(t *testing.T) {
 }
 
 func TestNewPermissionsAuthorizer(t *testing.T) {
-	h := NewPermissionsAuthorizer("ApiClient", DefaultErrorHandler)(http.HandlerFunc(handler), "foo", "bar")
+	h := NewPermissionsAuthorizer("ApiClient", StandardErrorHandler)(http.HandlerFunc(handler), "foo", "bar")
 
 	// no authorizer - fail
 	r := httptest.NewRequest("GET", "http://example.com/", nil)

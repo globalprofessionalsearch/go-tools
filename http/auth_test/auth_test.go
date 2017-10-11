@@ -32,9 +32,9 @@ var (
 // updated to test a realistic usage example
 func appRouter() http.Handler {
 	// create the authenticators and authorizers
-	apikeyAuthenticator := apikeyauth.NewAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey)
-	authClient := auth.NewClientAuthorizer("ApiClient", auth.DefaultErrorHandler)
-	authPerms := auth.NewPermissionsAuthorizer("ApiClient", auth.DefaultErrorHandler)
+	apikeyAuthenticator := apikeyauth.NewAPIKeyAuthenticator("Key", "ApiClient", auth.StandardErrorHandler, appAuthenticateAPIKey)
+	authClient := auth.NewClientAuthorizer("ApiClient", auth.StandardErrorHandler)
+	authPerms := auth.NewPermissionsAuthorizer("ApiClient", auth.StandardErrorHandler)
 	appHandler := http.HandlerFunc(appHttpHandler)
 
 	// create app router w/ routes, some protected w/ the authorizers
@@ -54,9 +54,9 @@ func appRouter() http.Handler {
 }
 
 func appRouterWithMiddleware() http.Handler {
-	apikeyAuthenticator := negroni.HandlerFunc(apikeyauth.NewAPIKeyAuthenticatorMiddleware("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey))
-	authClient := negroni.HandlerFunc(auth.NewClientAuthorizerMiddleware("ApiClient", auth.DefaultErrorHandler))
-	permsChecker := auth.NewPermissionsAuthorizerMiddleware("ApiClient", auth.DefaultErrorHandler)
+	apikeyAuthenticator := negroni.HandlerFunc(apikeyauth.NewAPIKeyAuthenticatorMiddleware("Key", "ApiClient", auth.StandardErrorHandler, appAuthenticateAPIKey))
+	authClient := negroni.HandlerFunc(auth.NewClientAuthorizerMiddleware("ApiClient", auth.StandardErrorHandler))
+	permsChecker := auth.NewPermissionsAuthorizerMiddleware("ApiClient", auth.StandardErrorHandler)
 	authPerms := func(perms ...string) negroni.Handler {
 		return negroni.HandlerFunc(permsChecker(perms...))
 	}
