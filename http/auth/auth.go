@@ -79,58 +79,96 @@ func DefaultErrorHandler(w http.ResponseWriter, r *http.Request, e error) {
 	http.Error(w, "Internal error", 500)
 }
 
-// CreateClientAuthorizer returns an authorization middleware that requires a Client
+// NewClientAuthorizer returns an authorization middleware that requires a Client
 // be set in the request context at the specified key. The client instance must have an
 // identifier of some sort set, meaning it cannot be an empty string.
-func CreateClientAuthorizer(keyname string, failFn ErrorHandler) func(http.HandlerFunc) http.HandlerFunc {
-	return func(handler http.HandlerFunc) http.HandlerFunc {
-		return func(rw http.ResponseWriter, r *http.Request) {
-			c := r.Context().Value(keyname)
-			client, ok := c.(Client)
-			if !ok {
-				failFn(rw, r, ErrAuthenticationRequired)
+func NewClientAuthorizer(keyname string, failFn ErrorHandler) func(http.Handler) http.Handler {
+	return func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			_, err := checkClient(keyname, r)
+			if err != nil {
+				failFn(rw, r, err)
 				return
 			}
-			if "" == client.Id() {
-				failFn(rw, r, ErrAuthorizationFailed)
+			handler.ServeHTTP(rw, r)
+		})
+	}
+}
+
+func NewClientAuthorizerMiddleware(keyname string, failFn ErrorHandler) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
+	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+		_, err := checkClient(keyname, r)
+		if err != nil {
+			failFn(rw, r, err)
+			return
+		}
+		next(rw, r)
+	}
+}
+
+func checkClient(keyname string, req *http.Request) (bool, error) {
+	c := req.Context().Value(keyname)
+	client, ok := c.(Client)
+	if !ok {
+		return false, ErrAuthenticationRequired
+	}
+	if "" == client.Id() {
+		return false, ErrAuthorizationFailed
+	}
+	return true, nil
+}
+
+// NewPermissionsAuthorizer return an authorization middleware that requires an Authorizer
+// be set in the request context at the specified key.  The middleware facilitates wrapping
+// `http.HandlerFunc`s with permission checks, which will only execute if the Authorizer
+// grants all specified permissions.
+func NewPermissionsAuthorizer(keyname string, failFn ErrorHandler) func(http.Handler, ...string) http.Handler {
+	return func(handler http.Handler, perms ...string) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			_, err := checkPermissions(keyname, r, perms...)
+			if err != nil {
+				failFn(rw, r, err)
 				return
 			}
-			handler(rw, r)
+			handler.ServeHTTP(rw, r)
+		})
+	}
+}
+
+// NewPermissionsAuthorizerMiddleware returns a negroni-style middleware factory for invoking
+// permission checks
+func NewPermissionsAuthorizerMiddleware(keyname string, failFn ErrorHandler) func(...string) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
+	return func(perms ...string) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
+		return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+			_, err := checkPermissions(keyname, r, perms...)
+			if err != nil {
+				failFn(rw, r, err)
+				return
+			}
+			next(rw, r)
 		}
 	}
 }
 
-// CreatePermissionsAuthorizer return an authorization middleware that requires an Authorizer
-// be set in the request context at the specified key.  The middleware facilitates wrapping
-// `http.HandlerFunc`s with permission checks, which will only execute if the Authorizer
-// grants all specified permissions.
-func CreatePermissionsAuthorizer(keyname string, failFn ErrorHandler) func(http.HandlerFunc, ...string) http.HandlerFunc {
-	return func(handler http.HandlerFunc, perms ...string) http.HandlerFunc {
-		return func(rw http.ResponseWriter, r *http.Request) {
-			a := r.Context().Value(keyname)
-			// must actually have an authorizer to check - if not, the request must not
-			// have been authenticated
-			authorizer, ok := a.(Authorizer)
-			if !ok {
-				failFn(rw, r, ErrAuthenticationRequired)
-				return
-			}
+func checkPermissions(keyname string, req *http.Request, perms ...string) (bool, error) {
+	a := req.Context().Value(keyname)
+	// must actually have an authorizer to check - if not, the request must not
+	// have been authenticated
+	authorizer, ok := a.(Authorizer)
+	if !ok {
+		return false, ErrAuthenticationRequired
+	}
 
-			// check each permission - end early if any one is denied
-			for _, perm := range perms {
-				if allowed, err := authorizer.HasPermission(perm); err != nil {
-					failFn(rw, r, err)
-					return
-				} else if !allowed {
-					failFn(rw, r, ErrPermissionDenied{perm})
-					return
-				}
-			}
-
-			// made it, must be ok to proceed
-			handler(rw, r)
+	// check each permission - end early if any one is denied
+	for _, perm := range perms {
+		if allowed, err := authorizer.HasPermission(perm); err != nil {
+			return false, err
+		} else if !allowed {
+			return false, ErrPermissionDenied{perm}
 		}
 	}
+
+	return true, nil
 }
 
 // NewBasicApiClient return a new BasicApiClient with the specified

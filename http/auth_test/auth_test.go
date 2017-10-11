@@ -32,16 +32,17 @@ var (
 // updated to test a realistic usage example
 func appRouter() http.Handler {
 	// create the authenticators and authorizers
-	apikeyAuthenticator := apikeyauth.CreateAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey)
-	authClient := auth.CreateClientAuthorizer("ApiClient", auth.DefaultErrorHandler)
-	authPerms := auth.CreatePermissionsAuthorizer("ApiClient", auth.DefaultErrorHandler)
+	apikeyAuthenticator := apikeyauth.NewAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey)
+	authClient := auth.NewClientAuthorizer("ApiClient", auth.DefaultErrorHandler)
+	authPerms := auth.NewPermissionsAuthorizer("ApiClient", auth.DefaultErrorHandler)
+	appHandler := http.HandlerFunc(appHttpHandler)
 
 	// create app router w/ routes, some protected w/ the authorizers
 	router := mux.NewRouter()
-	router.HandleFunc("/public", appHttpHandler).Methods("GET")
-	router.HandleFunc("/private", authClient(appHttpHandler)).Methods("GET")
-	router.HandleFunc("/private/users", authPerms(appHttpHandler, "users.read")).Methods("GET")
-	router.HandleFunc("/private/users", authPerms(appHttpHandler, "users.read", "users.write")).Methods("POST")
+	router.Handle("/public", appHandler).Methods("GET")
+	router.Handle("/private", authClient(appHandler)).Methods("GET")
+	router.Handle("/private/users", authPerms(appHandler, "users.read")).Methods("GET")
+	router.Handle("/private/users", authPerms(appHandler, "users.read", "users.write")).Methods("POST")
 
 	// create the main app handler by wrapping the router
 	// in the various authenticator middlewares
@@ -49,6 +50,30 @@ func appRouter() http.Handler {
 
 	n := negroni.New()
 	n.UseHandler(handler)
+	return n
+}
+
+func appRouterWithMiddleware() http.Handler {
+	apikeyAuthenticator := negroni.HandlerFunc(apikeyauth.NewAPIKeyAuthenticatorMiddleware("Key", "ApiClient", auth.DefaultErrorHandler, appAuthenticateAPIKey))
+	authClient := negroni.HandlerFunc(auth.NewClientAuthorizerMiddleware("ApiClient", auth.DefaultErrorHandler))
+	permsChecker := auth.NewPermissionsAuthorizerMiddleware("ApiClient", auth.DefaultErrorHandler)
+	authPerms := func(perms ...string) negroni.Handler {
+		return negroni.HandlerFunc(permsChecker(perms...))
+	}
+	appHandler := negroni.Wrap(http.HandlerFunc(appHttpHandler))
+
+	// create app router w/ routes, some protected w/ the authorizer middlewares
+	auth := negroni.New()
+	auth.Use(authClient)
+	router := mux.NewRouter()
+	router.HandleFunc("/public", appHttpHandler).Methods("GET")
+	router.Handle("/private", auth.With(appHandler)).Methods("GET")
+	router.Handle("/private/users", auth.With(authPerms("users.read"), appHandler)).Methods("GET")
+	router.Handle("/private/users", auth.With(authPerms("users.read", "users.write"), appHandler)).Methods("POST")
+
+	n := negroni.New()
+	n.Use(apikeyAuthenticator)
+	n.UseHandler(router)
 	return n
 }
 
@@ -85,16 +110,22 @@ func TestAppPublicAuth(t *testing.T) {
 
 	ts := httptest.NewServer(appRouter())
 	defer ts.Close()
-	for _, test := range tests {
-		test := test
-		t.Run(fmt.Sprint(test), func(t *testing.T) {
-			client := webtest.NewClient(t).SetTargetServer(ts)
-			res := client.Call(test.method, test.path, nil)
-			require.Equal(t, test.expectedCode, res.StatusCode)
-			out, _ := ioutil.ReadAll(res.Body)
-			require.Equal(t, test.expectedText, string(out))
-		})
+	tsm := httptest.NewServer(appRouterWithMiddleware())
+	defer tsm.Close()
+	for _, server := range []*httptest.Server{ts, tsm} {
+		ts := server
+		for _, test := range tests {
+			test := test
+			t.Run(fmt.Sprint(test), func(t *testing.T) {
+				client := webtest.NewClient(t).SetTargetServer(ts)
+				res := client.Call(test.method, test.path, nil)
+				require.Equal(t, test.expectedCode, res.StatusCode)
+				out, _ := ioutil.ReadAll(res.Body)
+				require.Equal(t, test.expectedText, string(out))
+			})
+		}
 	}
+
 }
 
 func TestAppApikeyAuth(t *testing.T) {
@@ -124,16 +155,21 @@ func TestAppApikeyAuth(t *testing.T) {
 
 	ts := httptest.NewServer(appRouter())
 	defer ts.Close()
-	for _, test := range tests {
-		t.Run(fmt.Sprint(test), func(t *testing.T) {
-			client := webtest.NewClient(t).SetTargetServer(ts)
-			req := client.NewRequest(test.method, test.path, nil)
-			req.Header.Set("Authorization", "Key "+test.key)
-			res := client.Do(req)
-			require.Equal(t, test.code, res.StatusCode)
-			out, _ := ioutil.ReadAll(res.Body)
-			require.Equal(t, test.text, string(out))
-		})
+	tsm := httptest.NewServer(appRouterWithMiddleware())
+	defer tsm.Close()
+	for _, server := range []*httptest.Server{ts, tsm} {
+		ts := server
+		for _, test := range tests {
+			t.Run(fmt.Sprint(test), func(t *testing.T) {
+				client := webtest.NewClient(t).SetTargetServer(ts)
+				req := client.NewRequest(test.method, test.path, nil)
+				req.Header.Set("Authorization", "Key "+test.key)
+				res := client.Do(req)
+				require.Equal(t, test.code, res.StatusCode)
+				out, _ := ioutil.ReadAll(res.Body)
+				require.Equal(t, test.text, string(out))
+			})
+		}
 	}
 }
 

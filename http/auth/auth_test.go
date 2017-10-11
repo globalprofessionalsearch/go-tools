@@ -27,14 +27,14 @@ func TestHandler(t *testing.T) {
 	require.Equal(t, "Hello world!", string(out))
 }
 
-func TestCreateClientAuthorizer(t *testing.T) {
+func TestNewClientAuthorizer(t *testing.T) {
 	// wrap handler in a client checker
-	h := CreateClientAuthorizer("ApiClient", DefaultErrorHandler)(handler)
+	h := NewClientAuthorizer("ApiClient", DefaultErrorHandler)(http.HandlerFunc(handler))
 
 	// no api client - fail
 	r := httptest.NewRequest("GET", "http://example.com/", nil)
 	rw := httptest.NewRecorder()
-	h(rw, r)
+	h.ServeHTTP(rw, r)
 	res := rw.Result()
 	out, _ := ioutil.ReadAll(res.Body)
 	require.Equal(t, 401, res.StatusCode)
@@ -44,7 +44,7 @@ func TestCreateClientAuthorizer(t *testing.T) {
 	r = httptest.NewRequest("GET", "http://example.com/", nil)
 	req := r.WithContext(context.WithValue(r.Context(), "ApiClient", BasicApiClient{}))
 	rw = httptest.NewRecorder()
-	h(rw, req)
+	h.ServeHTTP(rw, req)
 	res = rw.Result()
 	out, _ = ioutil.ReadAll(res.Body)
 	require.Equal(t, 403, res.StatusCode)
@@ -54,20 +54,20 @@ func TestCreateClientAuthorizer(t *testing.T) {
 	r = httptest.NewRequest("GET", "http://example.com/", nil)
 	req = r.WithContext(context.WithValue(r.Context(), "ApiClient", BasicApiClient{id: "some-id"}))
 	rw = httptest.NewRecorder()
-	h(rw, req)
+	h.ServeHTTP(rw, req)
 	res = rw.Result()
 	out, _ = ioutil.ReadAll(res.Body)
 	require.Equal(t, 200, res.StatusCode)
 	require.Equal(t, "Hello world!", string(out))
 }
 
-func TestCreatePermissionsAuthorizer(t *testing.T) {
-	h := CreatePermissionsAuthorizer("ApiClient", DefaultErrorHandler)(handler, "foo", "bar")
+func TestNewPermissionsAuthorizer(t *testing.T) {
+	h := NewPermissionsAuthorizer("ApiClient", DefaultErrorHandler)(http.HandlerFunc(handler), "foo", "bar")
 
 	// no authorizer - fail
 	r := httptest.NewRequest("GET", "http://example.com/", nil)
 	rw := httptest.NewRecorder()
-	h(rw, r)
+	h.ServeHTTP(rw, r)
 	res := rw.Result()
 	out, _ := ioutil.ReadAll(res.Body)
 	require.Equal(t, 401, res.StatusCode)
@@ -77,7 +77,7 @@ func TestCreatePermissionsAuthorizer(t *testing.T) {
 	r = httptest.NewRequest("GET", "http://example.com/", nil)
 	req := r.WithContext(context.WithValue(r.Context(), "ApiClient", BasicApiClient{perms: []string{"foo"}}))
 	rw = httptest.NewRecorder()
-	h(rw, req)
+	h.ServeHTTP(rw, req)
 	res = rw.Result()
 	out, _ = ioutil.ReadAll(res.Body)
 	require.Equal(t, 403, res.StatusCode)
@@ -87,7 +87,7 @@ func TestCreatePermissionsAuthorizer(t *testing.T) {
 	r = httptest.NewRequest("GET", "http://example.com/", nil)
 	req = r.WithContext(context.WithValue(r.Context(), "ApiClient", BasicApiClient{perms: []string{"foo", "bar"}}))
 	rw = httptest.NewRecorder()
-	h(rw, req)
+	h.ServeHTTP(rw, req)
 	res = rw.Result()
 	out, _ = ioutil.ReadAll(res.Body)
 	require.Equal(t, 200, res.StatusCode)

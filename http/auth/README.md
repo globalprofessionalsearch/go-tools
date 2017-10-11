@@ -14,38 +14,4 @@ See the tests for basic usage examples.
 
 ## Usage Example with Negroni & Gorilla ##
 
-This package provides only basic `net/http` integration, but usage with other libraries is fairly straight forward. For example, to use the auth middlewares in a project with `negroni` using the `gorilla/mux` router, you might do something like this:
-
-```go
-// app-specific functions for validating incoming Api Keys and JWT tokens
-func authenticateApikey(key string) (interface{}, error) {
-	return nil, nil
-}
-
-func authenticateJwt(token *jwt.Token) (interface{}, error) {
-	return nil, nil
-}
-
-// create the authenticators for detecting and verifying credentials
-apikeyAuthenticator := auth.CreateApikeyAuthenticator("Key", "ApiClient", auth.DefaultAuthFailedResponder, authenticateApikey)
-jwtAuthenticator := auth.CreateJwtAuthenticator("Bearer", "ApiClient", auth.DefaultAuthFailedResponder, authenticateJwt)
-
-// create the authorizers for protecting specific routes
-authClient := auth.CreateClientAuthorizer("ApiClient", auth.DefaultAuthFailedResponder)
-autPerms := auth.CreatePermissionsAuthorizer("ApiClient", auth.DefaultAuthFailedResponder)
-
-// set up your app routing w/ gorilla/mux router
-router := mux.NewRouter()
-// completely public route, no authentication required
-router.HandleFunc("/", HandleIndex).Methods("GET")
-// requires an api client, but no special permissions
-router.HandleFunc("/status", authClient(HandleStatus)).Methods("GET")
-// requires special permissions
-router.HandleFunc("/api/users", authPerms(HandleUsers, 'users.read', 'users.write')).Methods("GET", "POST")
-
-// setup negroni w/ authentication middlewares and router
-n := negroni.Classic()
-n.Use(negroni.WrapFunc(apikeyAuthenticator))
-n.Use(negroni.WrapFunc(jwtAuthenticator))
-n.UseHandler(router)
-```
+See the `auth_test` package tests for example usage.

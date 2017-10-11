@@ -29,9 +29,9 @@ func createTestHandler(t *testing.T, req *http.Request) http.Handler {
 	})
 }
 
-func TestCreateAPIKeyAuthenticator(t *testing.T) {
+func TestNewAPIKeyAuthenticator(t *testing.T) {
 	// create the authenticator middleware
-	authenticate := CreateAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, authenticateApiKey)
+	authenticate := NewAPIKeyAuthenticator("Key", "ApiClient", auth.DefaultErrorHandler, authenticateApiKey)
 
 	// test case: no key - 200 ok
 	t.Run("no api key", func(t *testing.T) {
