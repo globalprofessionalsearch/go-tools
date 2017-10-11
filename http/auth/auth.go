@@ -6,9 +6,11 @@ import (
 )
 
 var (
-	// ErrAuthenticationRequired is returned when
+	// ErrAuthenticationRequired is returned when authentication credentials are required, but
+	// were either missing or invalid
 	ErrAuthenticationRequired = errors.New("authentication required")
-	// ErrAuthorizationFailed is returned when
+	// ErrAuthorizationFailed is returned when authentication worked, but
+	// authorization is still denied
 	ErrAuthorizationFailed = errors.New("authorization failed")
 )
 
@@ -35,13 +37,14 @@ type Client interface {
 	Id() string
 }
 
-// Authorizer is the interface expected by the permissions authorizer.
+// Authorizer is the interface expected by the permissions authorizer middleware.
 // It must provide a way of checking specific permissions.
 type Authorizer interface {
 	HasPermission(perm string) (bool, error)
 }
 
-// ErrorHandler is called when
+// ErrorHandler is called when an error occurs in authenticator or authorizer
+// middlewares
 type ErrorHandler func(http.ResponseWriter, *http.Request, error)
 
 // StandardErrorHandler provides a default implementation for use in
@@ -95,6 +98,9 @@ func NewClientAuthorizer(keyname string, failFn ErrorHandler) func(http.Handler)
 	}
 }
 
+// NewClientAuthorizerMiddleware returns a negroni-style authorization middleware that requires a Client
+// be set in the request context at the specified key. The client instance must have an
+// identifier of some sort set, meaning it cannot be an empty string.
 func NewClientAuthorizerMiddleware(keyname string, failFn ErrorHandler) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
 	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		_, err := checkClient(keyname, r)

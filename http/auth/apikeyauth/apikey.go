@@ -17,8 +17,6 @@ type APIKeyAuthenticator func(key string) (interface{}, error)
 // NewAPIKeyAuthenticator creates a middleware that will detect an incoming
 // Api Key in the specified location, call a user-define function for validating
 // the api key, and store a returned object in the request context.
-//
-// Note the API: this returns a function for wrapping another handler
 func NewAPIKeyAuthenticator(keyname, contextKey string, failFn auth.ErrorHandler, authFn APIKeyAuthenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
@@ -32,6 +30,9 @@ func NewAPIKeyAuthenticator(keyname, contextKey string, failFn auth.ErrorHandler
 	}
 }
 
+// NewAPIKeyAuthenticatorMiddleware creates a negroni-style middleware that will detect an incoming
+// Api Key in the specified location, call a user-define function for validating
+// the api key, and store a returned object in the request context.
 func NewAPIKeyAuthenticatorMiddleware(keyname, contextKey string, failFn auth.ErrorHandler, authFn APIKeyAuthenticator) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
 	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		req, err := checkAPIKey(keyname, contextKey, r, authFn)
