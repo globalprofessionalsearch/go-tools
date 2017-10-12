@@ -8,21 +8,30 @@ import (
 	"sync"
 )
 
-type CnxState int
+type ClientEvent int
 
 const (
-	DISCONNECTED CnxState = iota
+	DISCONNECTED ClientEvent = iota
 	CONNECTED
+	ERROR
 )
 
 type Client struct {
-	state CnxState
-	// methods for sending
-	// methods for registering handlers
-	ctx *context.Context
+	//client *websocket.Client
+	mtx         *sync.RWMutex
+	ctx         *context.Context
+	listeners   map[ClientEvent]func()
+	errListener func(error)
+	handlers    map[string]MessageHandler
 }
 
-type Clients struct {
+func (c *Client) trigger()                            {}
+func (c *Client) triggerError()                       {}
+func (c *Client) On(evt ClientEvent, listener func()) {}
+func (c *Client) OnError(func(error))                 {}
+func (c *Client) Send(evt string, data interface{})   {}
+
+type ClientPool struct {
 	// methods for registering, unregistering clients, broadcasting to group
 	mtx *sync.RWMutex
 	ctx *context.Context
@@ -42,4 +51,4 @@ func (m Message) Unmarshal(target interface{}) error {
 	return json.Unmarshal(*m.Data, target)
 }
 
-type Handler func(*Client, Message)
+type MessageHandler func(*Client, Message)
