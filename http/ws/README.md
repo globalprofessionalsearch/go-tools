@@ -21,23 +21,31 @@ func main () {
 		clientPool.Register(client)
 
 		// handle connection events: notify all clients in pool of this user connecting/disconnecting
-		ws.On(ws.DISCONNECTED, func() {
+		client.On(ws.DISCONNECTED, func() {
 			user, _ := c.Context().Get('user').(appUser)
 			data := struct{Id string}{user.Id}
-			clientPool.Broadcast("participant.disconnected", data)
+			clientPool.Broadcast("participants.disconnected", data)
 		})
-		ws.On(ws.CONNECTED, func() {
-			ws.Send("app.connected", ws.NewMessage())
+		client.On(ws.CONNECTED, func() {
+			client.Send("app.connected", nil)
+			user, _ := c.Context().Get('user').(appUser)
+			data := struct{Id string}{user.Id}
+			clientPool.Broadcast("participants.connected", data)
+		})
+		client.OnError(func(err error) {
+			// TODO: maybe encoding a message failed or something...?
 		})
 
 		// register app event handlers
-		ws.Handle("chats.msg", incomingMsgHandler)
-		ws.Handle("chats.msg-private", incomingPrivateMsgHandler)
-		ws.Handle("participants.info", getParticipantInfoHandler)
-		ws.Handle("app.signout", signoutHandler)
+		client.Handle("chats.msg", incomingMsgHandler)
+		client.Handle("chats.msg-private", incomingPrivateMsgHandler)
+		client.Handle("participants.info", getParticipantInfoHandler)
+		client.Handle("app.signout", signoutHandler)
 	})
 
 	http.ListenAndServe(":80", httpHandler)
+
+	// listen for interrupt, disconnect connected clients
 }
 
 func incomingChatMsgHandler(client *ws.Client, msg ws.Message) {
