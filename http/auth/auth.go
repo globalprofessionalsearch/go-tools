@@ -30,11 +30,11 @@ func (e ErrPermissionDenied) Permission() string {
 	return e.perm
 }
 
-// Client is a basic interface expected in the request context by
+// Authenticator is a basic interface expected in the request context by
 // the client authorizer.  It must be identifiable in some way via
-// the `Id` method.
-type Client interface {
-	Id() string
+// the `AuthenticatedId` method.
+type Authenticator interface {
+	AuthenticationID() string
 }
 
 // Authorizer is the interface expected by the permissions authorizer middleware.
@@ -114,11 +114,11 @@ func NewClientAuthorizerMiddleware(keyname string, failFn ErrorHandler) func(htt
 
 func checkClient(keyname string, req *http.Request) (bool, error) {
 	c := req.Context().Value(keyname)
-	client, ok := c.(Client)
+	client, ok := c.(Authenticator)
 	if !ok {
 		return false, ErrAuthenticationRequired
 	}
-	if "" == client.Id() {
+	if "" == client.AuthenticationID() {
 		return false, ErrAuthorizationFailed
 	}
 	return true, nil
@@ -190,7 +190,7 @@ type BasicApiClient struct {
 	perms []string
 }
 
-func (b BasicApiClient) Id() string {
+func (b BasicApiClient) AuthenticationID() string {
 	return b.id
 }
 

@@ -73,7 +73,7 @@ func TestNewAPIKeyAuthenticator(t *testing.T) {
 		require.Equal(t, "Hello world!", out)
 		val := receivedReq.Context().Value("ApiClient")
 		require.NotNil(t, val)
-		require.Equal(t, "good-api-key", val.(auth.BasicApiClient).Id())
+		require.Equal(t, "good-api-key", val.(auth.BasicApiClient).AuthenticationID())
 	})
 }
 

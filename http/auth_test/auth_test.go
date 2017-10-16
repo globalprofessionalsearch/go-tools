@@ -90,7 +90,7 @@ func appHttpHandler(rw http.ResponseWriter, r *http.Request) {
 	msg := "Hello world!"
 	user, ok := r.Context().Value("ApiClient").(auth.BasicApiClient)
 	if ok {
-		msg = "Hello " + user.Id()
+		msg = "Hello " + user.AuthenticationID()
 	}
 	rw.WriteHeader(200)
 	rw.Write([]byte(msg))
