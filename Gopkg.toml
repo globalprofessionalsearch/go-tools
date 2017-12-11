@@ -30,5 +30,9 @@
   branch = "master"
 
 [[constraint]]
+  name = "github.com/dgrijalva/jwt-go"
+  branch = "master"
+
+[[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.1.4"
