@@ -83,22 +83,12 @@ func (c Client) NewRequest(method, path string, body io.Reader) *http.Request {
 
 	// the url must be absolute, so depends on the test server
 	absPath := strings.Join([]string{c.targetServer.URL, path}, "")
-
-	// check for a query string, and ensure it is parsed and encoded properly
-	queryParts := strings.Split(absPath, "?")
-	if len(queryParts) == 2 {
-		parsedQ, err := url.ParseQuery(queryParts[1])
-		if err != nil {
-			c.t.Fatal(err)
-		}
-		absPath += "?" + parsedQ.Encode()
-	}
-
-	uri, err := url.ParseRequestURI(absPath)
+	uri, err := url.Parse(absPath)
 	if err != nil {
 		c.t.Fatal(err)
 	}
 	req.URL = uri
+	
 	return req
 }
 
