@@ -25,11 +25,11 @@ type Client struct {
 	handlers    map[string]MessageHandler
 }
 
-func (c *Client) trigger()                            {}
-func (c *Client) triggerError()                       {}
-func (c *Client) On(evt ClientEvent, listener func()) {}
-func (c *Client) OnError(func(error))                 {}
-func (c *Client) Send(evt string, data interface{})   {}
+func (c *Client) trigger()                                   {}
+func (c *Client) triggerError()                              {}
+func (c *Client) On(evt ClientEvent, listener func(Message)) {}
+func (c *Client) OnError(func(error))                        {}
+func (c *Client) SendMessage(Message)                        {}
 
 type ClientPool struct {
 	// methods for registering, unregistering clients, broadcasting to group
