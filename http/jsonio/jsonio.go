@@ -22,6 +22,20 @@ func UnmarshalRequest(r *http.Request, target interface{}) error {
 	return nil
 }
 
+// UnmarshalResponse decodes json from a response body into a target
+func UnmarshalResponse(r *http.Response, target interface{}) error {
+	in, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(in, target)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Respond sends a json response, marshaling any sent data into json
 func Respond(w http.ResponseWriter, code int, val interface{}) {
 	jsn, err := json.Marshal(val)

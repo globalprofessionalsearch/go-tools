@@ -26,6 +26,20 @@ func TestUnmarshalRequest(t *testing.T) {
 	require.Equal(t, 70, in.Age)
 }
 
+func TestUnmarshalResponse(t *testing.T) {
+	out := person{"Foobert", 70}
+	rw := httptest.NewRecorder()
+	Respond(rw, 200, out)
+	res := rw.Result()
+	require.Equal(t, 200, res.StatusCode)
+	require.Equal(t, "application/json", res.Header.Get("Content-Type"))
+	var in person
+	err := UnmarshalResponse(res, &in)
+	require.Nil(t, err)
+	require.Equal(t, "Foobert", in.Name)
+	require.Equal(t, 70, in.Age)
+}
+
 func TestRespond(t *testing.T) {
 	out := person{"Foobert", 70}
 	exp := `{"name":"Foobert","age":70}`
